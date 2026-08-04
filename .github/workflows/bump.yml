@@ -1,0 +1,78 @@
+name: Bump Version
+on:
+  workflow_dispatch:
+    inputs:
+      frida_version:
+        description: 'Frida version (leave empty for latest)'
+        required: false
+      module_version:
+        description: 'New module version (e.g. v1.11.0, leave empty to bump patch)'
+        required: false
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: write
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Calculate new versions
+        id: vars
+        run: |
+          # 1. Frida Version
+          FRIDA_INPUT="${{ github.event.inputs.frida_version }}"
+          if [ -z "$FRIDA_INPUT" ]; then
+            FRIDA_LATEST=$(curl -sL https://api.github.com/repos/frida/frida/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+            FRIDA_VERSION=${FRIDA_LATEST}
+          else
+            FRIDA_VERSION=$FRIDA_INPUT
+          fi
+          
+          # 2. Module Version Code
+          CURRENT_CODE=$(grep 'moduleVersionCode =' module.gradle | awk '{print $3}')
+          NEW_CODE=$((CURRENT_CODE + 1))
+          
+          # 3. Module Version
+          MODULE_INPUT="${{ github.event.inputs.module_version }}"
+          if [ -z "$MODULE_INPUT" ]; then
+            CURRENT_MOD=$(grep 'moduleVersion =' module.gradle | awk -F'"' '{print $2}')
+            PREFIX=$(echo $CURRENT_MOD | grep -o '.*[.]')
+            PATCH=$(echo $CURRENT_MOD | grep -o '[0-9]*$')
+            NEW_MOD="${PREFIX}$((PATCH + 1))"
+          else
+            NEW_MOD=$MODULE_INPUT
+          fi
+          
+          echo "frida=$FRIDA_VERSION" >> $GITHUB_OUTPUT
+          echo "mod_code=$NEW_CODE" >> $GITHUB_OUTPUT
+          echo "mod_version=$NEW_MOD" >> $GITHUB_OUTPUT
+
+      - name: Update module.gradle
+        run: |
+          FRIDA="${{ steps.vars.outputs.frida }}"
+          CODE="${{ steps.vars.outputs.mod_code }}"
+          MOD="${{ steps.vars.outputs.mod_version }}"
+          
+          sed -i -E "s/fridaVersion = \".*\"/fridaVersion = \"$FRIDA\"/" module.gradle
+          sed -i -E "s/moduleVersionCode = [0-9]+/moduleVersionCode = $CODE/" module.gradle
+          sed -i -E "s/moduleVersion = \".*\"/moduleVersion = \"$MOD\"/" module.gradle
+
+      - name: Commit and Push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add module.gradle
+          if git diff-index --quiet HEAD --; then
+            echo "No changes to commit."
+          else
+            git commit -m "bump: module to ${{ steps.vars.outputs.mod_version }} and frida to ${{ steps.vars.outputs.frida }}"
+            git push
+          fi
+          
+      - name: Trigger CI
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh workflow run ci.yml --ref main
