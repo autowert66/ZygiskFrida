@@ -21,6 +21,16 @@ jobs:
           distribution: temurin
           java-version: 11
           cache: gradle
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Build WebUI
+        run: |
+          cd webui
+          npm install
+          npm run build
+          mkdir -p ../template/magisk_module/webroot
+          cp -r dist/* ../template/magisk_module/webroot/
       - name: Test Build
         run: |
           chmod +x ./gradlew

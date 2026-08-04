@@ -11,3 +11,6 @@ local.properties
 /gadget/*
 !.gitkeep
 out
+/webui/node_modules
+/webui/dist
+/template/magisk_module/webroot
