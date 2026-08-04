@@ -100,6 +100,7 @@ if [ "$IS64BIT" = true ]; then
 fi
 
 extract "$ZIPFILE" "config.json.example" "$TMP_MODULE_DIR" true
+extract "$ZIPFILE" "shim.dex" "$TMP_MODULE_DIR" true
 
 set_perm_recursive "$TMP_MODULE_DIR" 0 0 0755 0644
 set_perm_recursive "$MODPATH" 0 0 0755 0644
