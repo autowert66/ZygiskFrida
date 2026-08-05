@@ -9,6 +9,7 @@ import java.util.List;
 public class LabelShim {
     public static void main(String[] args) {
         try {
+            android.os.Looper.prepareMainLooper();
             Class<?> activityThreadClass = Class.forName("android.app.ActivityThread");
             Method systemMain = activityThreadClass.getMethod("systemMain");
             Object thread = systemMain.invoke(null);
